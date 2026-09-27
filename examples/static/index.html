@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowGuard ⚡ Rate Limiter Dashboard</title>
+<style>
+:root {
+  --bg: #0a0e17; --surface: #111827; --surface2: #1e293b;
+  --border: #1e3a5f; --text: #e2e8f0; --muted: #64748b;
+  --accent: #3b82f6; --green: #22c55e; --red: #ef4444;
+  --amber: #f59e0b; --purple: #a855f7; --cyan: #06b6d4;
+  --radius: 12px; --shadow: 0 4px 24px rgba(0,0,0,.4);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+/* ── Header ─────────────────────────────── */
+header { background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); padding:24px 32px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; }
+header h1 { font-size:28px; font-weight:700; }
+header h1 span { background:linear-gradient(135deg,var(--cyan),var(--accent),var(--purple)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+header .badge { background:var(--green); color:#000; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:0.5px; }
+header .right { margin-left:auto; display:flex; gap:12px; align-items:center; }
+header .right a { color:var(--muted); text-decoration:none; font-size:13px; transition:.2s; }
+header .right a:hover { color:var(--text); }
+
+/* ── Layout ─────────────────────────────── */
+.container { max-width:1440px; margin:0 auto; padding:24px; }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.grid-4 { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+@media(max-width:1100px){ .grid-2{grid-template-columns:1fr;} .grid-4{grid-template-columns:1fr 1fr;} }
+@media(max-width:600px){ .grid-4{grid-template-columns:1fr;} }
+
+/* ── Cards ──────────────────────────────── */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); }
+.card h3 { font-size:14px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.card h3 .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+/* ── Controls Panel ─────────────────────── */
+.controls { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:24px; align-items:flex-end; }
+.control-group { display:flex; flex-direction:column; gap:4px; }
+.control-group label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; }
+.control-group input, .control-group select { background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:14px; width:120px; outline:none; transition:.2s; }
+.control-group input:focus, .control-group select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(59,130,246,.15); }
+
+/* ── Buttons ────────────────────────────── */
+.btn { border:none; border-radius:8px; padding:10px 20px; font-size:14px; font-weight:600; cursor:pointer; transition:all .15s; display:inline-flex; align-items:center; gap:6px; }
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-primary:hover { background:#2563eb; transform:translateY(-1px); }
+.btn-danger { background:var(--red); color:#fff; }
+.btn-danger:hover { background:#dc2626; }
+.btn-success { background:var(--green); color:#000; }
+.btn-success:hover { background:#16a34a; }
+.btn-outline { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+.btn-outline:hover { background:rgba(59,130,246,.1); }
+.btn-sm { padding:6px 14px; font-size:12px; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+
+/* ── Algo Panels ────────────────────────── */
+.algo-card { position:relative; overflow:hidden; }
+.algo-card .algo-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.algo-card .algo-name { font-size:16px; font-weight:700; }
+.algo-card .algo-tag { font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:0.5px; }
+
+/* ── Gauge ──────────────────────────────── */
+.gauge-wrap { display:flex; align-items:center; gap:16px; margin-bottom:12px; }
+.gauge { width:100%; height:24px; background:var(--surface2); border-radius:12px; overflow:hidden; position:relative; }
+.gauge-fill { height:100%; border-radius:12px; transition:width .3s ease, background .3s; }
+.gauge-label { position:absolute; right:8px; top:50%; transform:translateY(-50%); font-size:11px; font-weight:700; color:var(--text); text-shadow:0 1px 2px rgba(0,0,0,.5); }
+
+/* ── Metrics Row ────────────────────────── */
+.metrics-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.metric { text-align:center; padding:8px; background:var(--surface2); border-radius:8px; }
+.metric .value { font-size:20px; font-weight:700; font-family:'Cascadia Code','SF Mono','Consolas',monospace; }
+.metric .label { font-size:10px; color:var(--muted); text-transform:uppercase; margin-top:2px; }
+
+/* ── Timeline Canvas ────────────────────── */
+.timeline-container { position:relative; height:200px; background:var(--surface2); border-radius:8px; overflow:hidden; }
+canvas { display:block; width:100%; height:100%; }
+
+/* ── Benchmark Table ────────────────────── */
+.bench-table { width:100%; border-collapse:collapse; font-size:13px; }
+.bench-table th { text-align:left; padding:10px 12px; border-bottom:2px solid var(--border); color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; }
+.bench-table td { padding:10px 12px; border-bottom:1px solid var(--border); font-family:'Cascadia Code','SF Mono','Consolas',monospace; }
+.bench-table tr:hover td { background:rgba(59,130,246,.05); }
+
+/* ── Request Log ────────────────────────── */
+.log-container { max-height:260px; overflow-y:auto; font-family:'Cascadia Code','SF Mono','Consolas',monospace; font-size:12px; }
+.log-container::-webkit-scrollbar { width:6px; }
+.log-container::-webkit-scrollbar-track { background:transparent; }
+.log-container::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+.log-entry { padding:4px 8px; border-radius:4px; margin-bottom:2px; display:flex; gap:8px; align-items:center; }
+.log-entry.allowed { background:rgba(34,197,94,.08); }
+.log-entry.rejected { background:rgba(239,68,68,.08); }
+.log-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.log-dot.green { background:var(--green); }
+.log-dot.red { background:var(--red); }
+.log-time { color:var(--muted); min-width:80px; }
+.log-algo { color:var(--cyan); min-width:110px; }
+
+/* ── Auto-fire indicator ────────────────── */
+.autofire-active { animation:pulse 1s infinite; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,.4);} 50%{box-shadow:0 0 0 8px rgba(59,130,246,0);} }
+
+/* ── Spinner ────────────────────────────── */
+.spinner { width:16px; height:16px; border:2px solid var(--muted); border-top-color:var(--accent); border-radius:50%; animation:spin .6s linear infinite; display:inline-block; }
+@keyframes spin { to{transform:rotate(360deg);} }
+
+.section-title { font-size:20px; font-weight:700; margin:32px 0 16px; display:flex; align-items:center; gap:10px; }
+.section-title .icon { font-size:24px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ <span>FlowGuard</span></h1>
+  <div class="badge">Live</div>
+  <div class="right">
+    <a href="https://github.com/ShivanshHingve2804/FlowGuard" target="_blank">GitHub ↗</a>
+    <a href="/docs" target="_blank">API Docs ↗</a>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ── Controls ──────────────────────── -->
+  <div class="card" style="margin-bottom:24px">
+    <h3><span class="dot" style="background:var(--accent)"></span> Configuration</h3>
+    <div class="controls">
+      <div class="control-group">
+        <label>Capacity</label>
+        <input type="number" id="cfg-capacity" value="10" min="1" max="1000">
+      </div>
+      <div class="control-group">
+        <label>Refill / Leak Rate (per sec)</label>
+        <input type="number" id="cfg-rate" value="2" min="0.1" max="100" step="0.1">
+      </div>
+      <div class="control-group">
+        <label>Window (sec)</label>
+        <input type="number" id="cfg-window" value="5" min="1" max="60" step="0.5">
+      </div>
+      <div class="control-group">
+        <label>Auto-fire interval (ms)</label>
+        <input type="number" id="cfg-interval" value="200" min="50" max="5000" step="50">
+      </div>
+      <div class="control-group">
+        <label>Algorithm</label>
+        <select id="cfg-algo">
+          <option value="all">All (Parallel)</option>
+          <option value="token_bucket">Token Bucket</option>
+          <option value="leaky_bucket">Leaky Bucket</option>
+          <option value="sliding_window_log">Sliding Window Log</option>
+          <option value="sliding_window_counter">Sliding Window Counter</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="applyConfig()">Apply & Reset</button>
+      <button class="btn btn-success" id="btn-fire" onclick="fireSingle()">🎯 Fire Request</button>
+      <button class="btn btn-outline" id="btn-auto" onclick="toggleAutofire()">▶ Auto-Fire</button>
+      <button class="btn btn-danger btn-sm" onclick="resetAll()">⟲ Reset</button>
+    </div>
+  </div>
+
+  <!-- ── Algorithm Cards ───────────────── -->
+  <div class="grid-4" id="algo-grid">
+    <!-- JS will render these -->
+  </div>
+
+  <!-- ── Timeline + Log ────────────────── -->
+  <div class="section-title"><span class="icon">📊</span> Live Request Timeline</div>
+  <div class="grid-2">
+    <div class="card">
+      <h3><span class="dot" style="background:var(--cyan)"></span> Timeline</h3>
+      <div class="timeline-container">
+        <canvas id="timeline-canvas"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--amber)"></span> Request Log</h3>
+      <div class="log-container" id="log-container"></div>
+    </div>
+  </div>
+
+  <!-- ── Benchmark ─────────────────────── -->
+  <div class="section-title"><span class="icon">🏎️</span> Multi-Threaded Benchmark</div>
+  <div class="card">
+    <div class="controls">
+      <div class="control-group">
+        <label>Total Requests</label>
+        <input type="number" id="bench-requests" value="500" min="10" max="5000">
+      </div>
+      <div class="control-group">
+        <label>Worker Threads</label>
+        <input type="number" id="bench-workers" value="20" min="1" max="50">
+      </div>
+      <button class="btn btn-primary" id="btn-bench" onclick="runBenchmark()">🚀 Run Benchmark</button>
+    </div>
+    <div id="bench-result" style="margin-top:16px;"></div>
+  </div>
+
+  <div style="height:60px"></div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────
+const ALGO_META = {
+  token_bucket:           { name:'Token Bucket',           tag:'Burst',  color:'#3b82f6', tagBg:'rgba(59,130,246,.15)' },
+  leaky_bucket:           { name:'Leaky Bucket',           tag:'Smooth', color:'#a855f7', tagBg:'rgba(168,85,247,.15)' },
+  sliding_window_log:     { name:'Sliding Window Log',     tag:'Exact',  color:'#06b6d4', tagBg:'rgba(6,182,212,.15)' },
+  sliding_window_counter: { name:'Sliding Window Counter', tag:'Fast',   color:'#f59e0b', tagBg:'rgba(245,158,11,.15)' },
+};
+
+let state = {};     // { algo: { remaining, limit, usage, allowed, retryAfter } }
+let autoTimer = null;
+let logEntries = [];
+let timelineData = []; // { ts, algo, allowed }
+
+function initState() {
+  for (const k of Object.keys(ALGO_META)) {
+    const cap = parseInt(document.getElementById('cfg-capacity').value) || 10;
+    state[k] = { remaining: cap, limit: cap, usage: 0, allowed: true, retryAfter: 0 };
+  }
+}
+
+// ── Render Algo Cards ──────────────────────
+function renderCards() {
+  const grid = document.getElementById('algo-grid');
+  grid.innerHTML = '';
+  for (const [key, meta] of Object.entries(ALGO_META)) {
+    const s = state[key];
+    const pct = s.limit > 0 ? ((s.limit - s.remaining) / s.limit * 100) : 0;
+    const fillColor = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#22c55e';
+
+    grid.innerHTML += `
+    <div class="card algo-card">
+      <div class="algo-header">
+        <span class="algo-name" style="color:${meta.color}">${meta.name}</span>
+        <span class="algo-tag" style="color:${meta.color};background:${meta.tagBg}">${meta.tag}</span>
+      </div>
+      <div class="gauge-wrap">
+        <div class="gauge">
+          <div class="gauge-fill" style="width:${pct}%;background:${fillColor}"></div>
+          <span class="gauge-label">${Math.round(pct)}%</span>
+        </div>
+      </div>
+      <div class="metrics-row">
+        <div class="metric">
+          <div class="value" style="color:${s.remaining > 0 ? '#22c55e' : '#ef4444'}">${s.remaining}</div>
+          <div class="label">Remaining</div>
+        </div>
+        <div class="metric">
+          <div class="value" style="color:var(--cyan)">${s.usage}</div>
+          <div class="label">Used</div>
+        </div>
+        <div class="metric">
+          <div class="value" style="color:${s.retryAfter > 0 ? '#f59e0b' : '#64748b'}">${s.retryAfter > 0 ? s.retryAfter.toFixed(1)+'s' : '—'}</div>
+          <div class="label">Retry After</div>
+        </div>
+      </div>
+    </div>`;
+  }
+}
+
+// ── API Calls ──────────────────────────────
+async function fireAlgo(algo) {
+  try {
+    const res = await fetch(`/api/acquire/${algo}`, { method:'POST' });
+    const data = await res.json();
+    state[algo] = {
+      remaining: data.remaining,
+      limit: data.limit,
+      usage: data.current_usage,
+      allowed: data.allowed,
+      retryAfter: data.retry_after || 0,
+    };
+    logEntries.unshift(data);
+    if (logEntries.length > 200) logEntries.length = 200;
+    timelineData.push({ ts: Date.now(), algo, allowed: data.allowed });
+    if (timelineData.length > 400) timelineData.shift();
+  } catch(e) { console.error(e); }
+}
+
+async function fireSingle() {
+  const algo = document.getElementById('cfg-algo').value;
+  if (algo === 'all') {
+    await Promise.all(Object.keys(ALGO_META).map(k => fireAlgo(k)));
+  } else {
+    await fireAlgo(algo);
+  }
+  renderCards();
+  renderLog();
+  drawTimeline();
+}
+
+function toggleAutofire() {
+  const btn = document.getElementById('btn-auto');
+  if (autoTimer) {
+    clearInterval(autoTimer);
+    autoTimer = null;
+    btn.textContent = '▶ Auto-Fire';
+    btn.classList.remove('autofire-active');
+  } else {
+    const ms = parseInt(document.getElementById('cfg-interval').value) || 200;
+    autoTimer = setInterval(fireSingle, ms);
+    btn.textContent = '⏸ Stop';
+    btn.classList.add('autofire-active');
+  }
+}
+
+async function applyConfig() {
+  if (autoTimer) toggleAutofire();
+  const body = {
+    capacity: parseInt(document.getElementById('cfg-capacity').value) || 10,
+    refill_rate: parseFloat(document.getElementById('cfg-rate').value) || 2,
+    window: parseFloat(document.getElementById('cfg-window').value) || 5,
+  };
+  await fetch('/api/reset', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  logEntries = [];
+  timelineData = [];
+  initState();
+  renderCards();
+  renderLog();
+  drawTimeline();
+}
+
+function resetAll() { applyConfig(); }
+
+// ── Log Renderer ───────────────────────────
+function renderLog() {
+  const container = document.getElementById('log-container');
+  container.innerHTML = logEntries.slice(0, 80).map(e => {
+    const t = new Date(e.timestamp * 1000);
+    const ts = t.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:1});
+    const cls = e.allowed ? 'allowed' : 'rejected';
+    const dotCls = e.allowed ? 'green' : 'red';
+    const meta = ALGO_META[e.algorithm] || {};
+    return `<div class="log-entry ${cls}">
+      <span class="log-dot ${dotCls}"></span>
+      <span class="log-time">${ts}</span>
+      <span class="log-algo" style="color:${meta.color||'#ccc'}">${meta.name||e.algorithm}</span>
+      <span>${e.allowed ? '✓ Allowed' : '✗ Rejected'}</span>
+      <span style="margin-left:auto;color:var(--muted)">rem: ${e.remaining}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Timeline Canvas ────────────────────────
+function drawTimeline() {
+  const canvas = document.getElementById('timeline-canvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (timelineData.length < 2) {
+    ctx.fillStyle = '#64748b';
+    ctx.font = '14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Fire some requests to see the timeline…', W/2, H/2);
+    return;
+  }
+
+  const algoKeys = Object.keys(ALGO_META);
+  const laneH = (H - 20) / algoKeys.length;
+  const now = Date.now();
+  const windowMs = 15000;
+  const minTs = now - windowMs;
+
+  // Lane labels
+  ctx.font = '10px system-ui';
+  algoKeys.forEach((k, i) => {
+    const y = 10 + i * laneH;
+    ctx.fillStyle = 'rgba(255,255,255,.03)';
+    if (i % 2 === 0) ctx.fillRect(0, y, W, laneH);
+    ctx.fillStyle = ALGO_META[k].color;
+    ctx.textAlign = 'left';
+    ctx.fillText(ALGO_META[k].name, 6, y + 14);
+  });
+
+  // Plot dots
+  for (const entry of timelineData) {
+    if (entry.ts < minTs) continue;
+    const x = ((entry.ts - minTs) / windowMs) * W;
+    const laneIdx = algoKeys.indexOf(entry.algo);
+    if (laneIdx < 0) continue;
+    const y = 10 + laneIdx * laneH + laneH / 2 + 4;
+
+    ctx.beginPath();
+    ctx.arc(x, y, entry.allowed ? 4 : 5, 0, Math.PI * 2);
+    ctx.fillStyle = entry.allowed ? '#22c55e' : '#ef4444';
+    ctx.fill();
+
+    if (!entry.allowed) {
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(239,68,68,.3)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+}
+
+// ── Benchmark ──────────────────────────────
+async function runBenchmark() {
+  const btn = document.getElementById('btn-bench');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Running…';
+
+  const body = {
+    requests: parseInt(document.getElementById('bench-requests').value) || 500,
+    workers: parseInt(document.getElementById('bench-workers').value) || 20,
+  };
+
+  try {
+    const res = await fetch('/api/benchmark', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const data = await res.json();
+    const bench = data.benchmark;
+
+    let html = `<p style="color:var(--muted);margin-bottom:12px;font-size:13px">Config: ${body.requests} requests × ${body.workers} threads</p>`;
+    html += `<table class="bench-table">
+      <thead><tr>
+        <th>Algorithm</th><th>Allowed</th><th>Rejected</th>
+        <th>Avg Latency</th><th>p50</th><th>p95</th><th>p99</th>
+      </tr></thead><tbody>`;
+
+    for (const [k, v] of Object.entries(bench)) {
+      const meta = ALGO_META[k] || {};
+      html += `<tr>
+        <td style="color:${meta.color||'#fff'};font-weight:600">${meta.name||k}</td>
+        <td style="color:#22c55e">${v.allowed}</td>
+        <td style="color:#ef4444">${v.rejected}</td>
+        <td>${v.avg_latency_us.toFixed(1)} µs</td>
+        <td>${v.p50_latency_us.toFixed(1)} µs</td>
+        <td>${v.p95_latency_us.toFixed(1)} µs</td>
+        <td>${v.p99_latency_us.toFixed(1)} µs</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    document.getElementById('bench-result').innerHTML = html;
+  } catch(e) {
+    document.getElementById('bench-result').innerHTML = `<p style="color:var(--red)">Error: ${e.message}</p>`;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '🚀 Run Benchmark';
+  initState();
+  renderCards();
+}
+
+// ── Resize handler ─────────────────────────
+window.addEventListener('resize', drawTimeline);
+
+// ── Init ───────────────────────────────────
+initState();
+renderCards();
+drawTimeline();
+</script>
+</body>
+</html>
