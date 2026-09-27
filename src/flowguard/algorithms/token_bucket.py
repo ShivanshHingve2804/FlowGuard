@@ -3,7 +3,7 @@ from typing import Dict
 from dataclasses import dataclass
 
 from flowguard.algorithms.base import BaseRateLimiter
-from flowguard.models import RateLimitResult
+from flowguard.models import RateLimitResult, RateLimitExceeded
 
 @dataclass
 class TokenBucketState:
@@ -14,22 +14,14 @@ class TokenBucketLimiter(BaseRateLimiter):
     """Token Bucket rate limiting algorithm."""
     
     def __init__(self, capacity: int, refill_rate: float) -> None:
-        """
-        Initialize the Token Bucket limiter.
-        
-        Args:
-            capacity (int): Maximum burst size / bucket capacity.
-            refill_rate (float): Number of tokens added to the bucket per second.
-        """
         super().__init__()
         self.capacity = capacity
         self.refill_rate = refill_rate
         self._state: Dict[str, TokenBucketState] = {}
         
     def acquire(self, key: str, tokens: int = 1) -> RateLimitResult:
-        """Attempt to acquire tokens from the bucket."""
         with self._lock:
-            now = time.monotonic()
+            now = time.time()
             state = self._state.get(key)
             
             if state is None:
@@ -41,7 +33,6 @@ class TokenBucketLimiter(BaseRateLimiter):
                 
             elapsed = now - state.last_refill_timestamp
             
-            # Refill tokens based on elapsed time
             new_tokens = min(self.capacity, state.current_tokens + elapsed * self.refill_rate)
             
             if new_tokens >= tokens:
@@ -58,15 +49,19 @@ class TokenBucketLimiter(BaseRateLimiter):
                 
             reset_after = (self.capacity - state.current_tokens) / self.refill_rate if self.refill_rate > 0 else float('inf')
             
-            return RateLimitResult(
+            result = RateLimitResult(
                 allowed=allowed,
+                limit=self.capacity,
                 remaining=int(state.current_tokens),
                 reset_after_seconds=max(0.0, reset_after),
                 retry_after_seconds=max(0.0, retry_after),
                 current_usage=int(self.capacity - state.current_tokens)
             )
             
+            if not allowed:
+                raise RateLimitExceeded(result)
+            return result
+            
     def reset(self, key: str) -> None:
-        """Reset the bucket state for a key."""
         with self._lock:
             self._state.pop(key, None)

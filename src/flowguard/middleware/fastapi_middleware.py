@@ -50,6 +50,6 @@ class FlowGuardMiddleware(BaseHTTPMiddleware):
         if result:
             response.headers["X-RateLimit-Limit"] = str(result.limit)
             response.headers["X-RateLimit-Remaining"] = str(result.remaining)
-            response.headers["X-RateLimit-Reset"] = str(int(result.reset_time))
+            response.headers["X-RateLimit-Reset"] = str(int(result.reset_after_seconds))
             
         return response
