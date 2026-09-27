@@ -1,0 +1,5 @@
+version: '3.8'
+services:
+  benchmark:
+    build: .
+    command: python -m flowguard.cli.benchmark --requests 50000 --concurrency 100
