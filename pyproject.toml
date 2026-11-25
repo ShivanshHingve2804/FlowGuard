@@ -4,13 +4,27 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flowguard"
-version = "0.1.0"
+version = "0.2.0"
+description = "Thread-safe and Redis-distributed rate limiter with 4 algorithms, pure ASGI middleware, and sync/async APIs."
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.11"
+authors = [{ name = "Shivansh Hingve", email = "shivanshhingve@gmail.com" }]
+keywords = ["rate-limiter", "fastapi", "asgi", "redis", "lua", "token-bucket", "concurrency"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
     "pydantic>=2.0.0",
-    "redis>=5.0.0"
+    "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -18,9 +32,37 @@ dev = [
     "pytest>=8.0.0",
     "httpx>=0.27.0",
     "pytest-cov>=5.0.0",
-    "pytest-asyncio>=0.23.0"
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
 ]
+
+[project.scripts]
+flowguard-bench = "flowguard.cli.benchmark:main"
+
+[project.urls]
+Homepage = "https://github.com/ShivanshHingve2804/FlowGuard"
+Repository = "https://github.com/ShivanshHingve2804/FlowGuard"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flowguard"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [".", "src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true

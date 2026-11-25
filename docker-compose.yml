@@ -1,5 +1,30 @@
-version: '3.8'
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  demo:
+    build: .
+    ports:
+      - "8888:8888"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+
   benchmark:
     build: .
-    command: python -m flowguard.cli.benchmark --requests 50000 --concurrency 100
+    profiles: ["bench"]
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["python", "-m", "flowguard.cli.benchmark", "--algorithm", "all", "--requests", "20000", "--concurrency", "50", "--keys", "16"]

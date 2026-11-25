@@ -1,25 +1,39 @@
-from .models import RateLimitRule, RateLimitResult, RateLimitExceeded
+"""FlowGuard — Thread-safe & Redis-distributed rate limiting for Python and FastAPI."""
+
 from .algorithms import (
-    TokenBucketLimiter,
+    BaseRateLimiter,
+    BaseRedisRateLimiter,
     LeakyBucketLimiter,
+    RedisLeakyBucketLimiter,
+    RedisSlidingWindowCounterLimiter,
+    RedisSlidingWindowLogLimiter,
+    RedisTokenBucketLimiter,
+    SlidingWindowCounterLimiter,
     SlidingWindowLogLimiter,
-    SlidingWindowCounterLimiter
+    TokenBucketLimiter,
+    create_limiter,
 )
+from .middleware import FlowGuardMiddleware, rate_limit
+from .models import AlgorithmName, RateLimitExceeded, RateLimitResult, RateLimitRule
 
-def rate_limit():
-    pass
-
-class FlowGuardMiddleware:
-    pass
+__version__ = "0.2.0"
 
 __all__ = [
-    "RateLimitRule",
-    "RateLimitResult",
-    "RateLimitExceeded",
-    "TokenBucketLimiter",
-    "LeakyBucketLimiter",
-    "SlidingWindowLogLimiter",
-    "SlidingWindowCounterLimiter",
-    "rate_limit",
+    "AlgorithmName",
+    "BaseRateLimiter",
+    "BaseRedisRateLimiter",
     "FlowGuardMiddleware",
+    "LeakyBucketLimiter",
+    "RateLimitExceeded",
+    "RateLimitResult",
+    "RateLimitRule",
+    "RedisLeakyBucketLimiter",
+    "RedisSlidingWindowCounterLimiter",
+    "RedisSlidingWindowLogLimiter",
+    "RedisTokenBucketLimiter",
+    "SlidingWindowCounterLimiter",
+    "SlidingWindowLogLimiter",
+    "TokenBucketLimiter",
+    "create_limiter",
+    "rate_limit",
 ]

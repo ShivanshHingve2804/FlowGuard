@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage
 htmlcov/
 dist/
@@ -11,5 +13,6 @@ venv/
 .venv/
 env/
 .env
+.DS_Store
 .idea/
 .vscode/
