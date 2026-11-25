@@ -76,7 +76,9 @@ app.add_middleware(
     limiter=limiter,
     exclude_paths={"/health", "/metrics"},
     trust_proxy_headers=False,
-    key_func=lambda req: req.headers.get("X-API-Key") or (req.client.host if req.client else "anon"),
+    key_func=lambda req: (
+        req.headers.get("X-API-Key") or (req.client.host if req.client else "anon")
+    ),
 )
 ```
 
@@ -107,6 +109,7 @@ from fastapi import FastAPI, Request
 from flowguard import rate_limit
 
 app = FastAPI()
+
 
 @app.get("/login")
 @rate_limit(

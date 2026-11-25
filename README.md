@@ -65,9 +65,11 @@ app = FastAPI()
 limiter = TokenBucketLimiter(capacity=100, refill_rate=10.0)
 app.add_middleware(FlowGuardMiddleware, limiter=limiter, exclude_paths={"/health"})
 
+
 @app.get("/health")
 def health():
     return {"status": "healthy"}
+
 
 @app.get("/strict")
 @rate_limit(limit=5, window=60.0, algorithm="sliding_window_log")
